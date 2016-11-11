@@ -2,7 +2,6 @@
 package imgconv
 
 import (
-	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -12,32 +11,34 @@ import (
 	"strings"
 )
 
-func convertImg(in io.Reader, out io.Writer, format string) error {
+func ConvertImg(in io.Reader, out io.Writer, format string, quality int) error {
 	img, _, err := image.Decode(in)
 	if err != nil {
 		return err
 	}
-	// fmt.Fprintln(os.Stderr, "Input format =", kind)
 	switch format {
 	case "jpg":
-		return jpeg.Encode(out, img, &jpeg.Options{Quality: 95})
+		if quality < 0 {
+			quality = 90
+		}
+		return jpeg.Encode(out, img, &jpeg.Options{Quality: quality})
 	case "png":
 		return png.Encode(out, img)
 	default:
-		return fmt.Errorf("unsupported format: %s", format)
+		return newErrorf(ErrUnsupportedFormat, "unsupported format: %q", format)
 	}
 }
 
 // ConvertToSameDir reads an image from infile and writes
 // a converted version of it in the same directory.
 // It returns the generated file name, e.g. "foo.jpg".
-func ConvertToSameDir(infile, format string) (string, error) {
+func ConvertToSameDir(infile, format string, quality int) (string, error) {
 	format = strings.ToLower(format)
 	outfile := strings.TrimSuffix(infile, filepath.Ext(infile)) + "." + format
-	return outfile, Convert(infile, outfile, format)
+	return outfile, Convert(infile, outfile, format, quality)
 }
 
-func Convert(infile, outfile, format string) error {
+func Convert(infile, outfile, format string, quality int) error {
 	in, err := os.Open(infile)
 	if err != nil {
 		return err
@@ -48,8 +49,12 @@ func Convert(infile, outfile, format string) error {
 	if err != nil {
 		return err
 	}
-	if err := convertImg(in, out, format); err != nil {
+	if err := ConvertImg(in, out, format, quality); err != nil {
 		out.Close()
+		if imgErr, ok := err.(*Error); ok && imgErr.Type == ErrUnsupportedFormat {
+			// fmt.Printf("Removing: %s\n", outfile)
+			os.Remove(outfile)
+		}
 		return err
 	}
 	return out.Close()
