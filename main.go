@@ -6,19 +6,16 @@ package main
 
 import (
 	"fmt"
-	"image"
-	"image/jpeg"
-	"image/png"
-	"io"
+	"gopl/ch10/ex101/imgconv"
 	"os"
-	"path/filepath"
-	"strings"
+	"sync"
 
 	"github.com/jessevdk/go-flags"
 )
 
 type options struct {
-	Format string `short:"f" long:"format" description:"output format" value-name:"png|jpg"`
+	Format  string `short:"f" long:"format" description:"output format" value-name:"png|jpg"`
+	Verbose bool   `short:"v" long:"verbose" description:"Verbose progress messages"`
 }
 
 func main() {
@@ -29,53 +26,75 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-	for _, infile := range args {
-		outfile, err := convert(infile, opts.Format)
-		verboseMsg := infile + " => "
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s%v\n", verboseMsg, err)
-			continue
+
+	results := make(chan result)
+	var wg sync.WaitGroup
+	for _, filename := range args {
+		wg.Add(1)
+		go convertImage(filename, opts.Format, &wg, results)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	for res := range results {
+		if opts.Verbose {
+			verboseMsg := res.infile + " => "
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s%v\n", verboseMsg, res.err)
+				continue
+			}
+			fmt.Printf("%s%s\n", verboseMsg, res.outfile)
 		}
-		fmt.Printf("%s%s\n", verboseMsg, outfile)
 	}
+
 }
 
-func convertImg(in io.Reader, out io.Writer, format string) error {
-	img, _, err := image.Decode(in)
-	if err != nil {
-		return err
-	}
-	// fmt.Fprintln(os.Stderr, "Input format =", kind)
-	switch format {
-	case "jpg":
-		return jpeg.Encode(out, img, &jpeg.Options{Quality: 95})
-	case "png":
-		return png.Encode(out, img)
-	default:
-		return fmt.Errorf("unsupported format: %s", format)
-	}
+func incoming(args []string) <-chan string {
+	c := make(chan string)
+	go func() {
+		for _, filename := range args {
+			c <- filename
+		}
+		close(c)
+	}()
+	return c
 }
 
-func convert(infile, format string) (string, error) {
-	format = strings.ToLower(format)
-	outfile := strings.TrimSuffix(infile, filepath.Ext(infile)) + "." + format
-	return outfile, convert2(outfile, infile, format)
+type result struct {
+	infile  string
+	outfile string
+	err     error
 }
 
-func convert2(outfile, infile, format string) error {
-	in, err := os.Open(infile)
-	if err != nil {
-		return err
+func convert(filenames []string, format string, results chan<- result) {
+	var wg sync.WaitGroup
+	for _, f := range filenames {
+		wg.Add(1)
+		go func(f string) {
+			defer wg.Done()
+			var r result
+			r.outfile, r.err = imgconv.ConvertToSameDir(f, format)
+			results <- r
+		}(f)
 	}
-	defer in.Close()
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+}
 
-	out, err := os.Create(outfile)
-	if err != nil {
-		return err
-	}
-	if err := convertImg(in, out, format); err != nil {
-		out.Close()
-		return err
-	}
-	return out.Close()
+var sema = make(chan struct{}, 20)
+
+func convertImage(filename, format string, wg *sync.WaitGroup, results chan<- result) {
+	sema <- struct{}{}
+	defer func() {
+		<-sema
+		wg.Done()
+	}()
+	r := result{infile: filename}
+	r.outfile, r.err = imgconv.ConvertToSameDir(filename, format)
+	results <- r
 }
