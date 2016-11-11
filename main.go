@@ -18,6 +18,14 @@ type options struct {
 	Verbose bool   `short:"v" long:"verbose" description:"Verbose progress messages"`
 }
 
+type result struct {
+	infile  string
+	outfile string
+	err     error
+}
+
+var sema = make(chan struct{}, 20)
+
 func main() {
 	var opts options
 	parser := flags.NewParser(&opts, flags.Default)
@@ -31,7 +39,7 @@ func main() {
 	var wg sync.WaitGroup
 	for _, filename := range args {
 		wg.Add(1)
-		go convertImage(filename, opts.Format, &wg, results)
+		go convert(filename, opts.Format, &wg, results)
 	}
 
 	go func() {
@@ -49,46 +57,9 @@ func main() {
 			fmt.Printf("%s%s\n", verboseMsg, res.outfile)
 		}
 	}
-
 }
 
-func incoming(args []string) <-chan string {
-	c := make(chan string)
-	go func() {
-		for _, filename := range args {
-			c <- filename
-		}
-		close(c)
-	}()
-	return c
-}
-
-type result struct {
-	infile  string
-	outfile string
-	err     error
-}
-
-func convert(filenames []string, format string, results chan<- result) {
-	var wg sync.WaitGroup
-	for _, f := range filenames {
-		wg.Add(1)
-		go func(f string) {
-			defer wg.Done()
-			var r result
-			r.outfile, r.err = imgconv.ConvertToSameDir(f, format)
-			results <- r
-		}(f)
-	}
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-}
-
-var sema = make(chan struct{}, 20)
-
-func convertImage(filename, format string, wg *sync.WaitGroup, results chan<- result) {
+func convert(filename, format string, wg *sync.WaitGroup, results chan<- result) {
 	sema <- struct{}{}
 	defer func() {
 		<-sema
