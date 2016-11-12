@@ -41,11 +41,18 @@ func main() {
 	parser.Usage = "[OPTIONS] file1 file2 ..."
 	args, err := parser.Parse()
 	if err != nil {
-		os.Exit(1)
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		} else {
+			fmt.Println()
+			parser.WriteHelp(os.Stderr)
+			os.Exit(1)
+		}
 	}
 
 	if len(args) == 0 {
-		parser.WriteHelp(os.Stdout)
+		fmt.Printf("nothing to do\n\n")
+		parser.WriteHelp(os.Stderr)
 		os.Exit(1)
 	}
 
@@ -65,7 +72,8 @@ func main() {
 	}
 
 	if len(strings.Trim(format, " ")) == 0 {
-		parser.WriteHelp(os.Stdout)
+		fmt.Printf("unexpected argument for flag '-o, --outfmt'\n\n")
+		parser.WriteHelp(os.Stderr)
 		os.Exit(1)
 	}
 
