@@ -21,7 +21,7 @@ const (
 )
 
 type options struct {
-	Format  string `short:"o" long:"outfmt" description:"Output format. If format supports quality setting, you may specify one after colon like jpg:92" value-name:"png|jpg" required:"true"`
+	Format  string `short:"o" long:"outfmt" description:"Output format. For jpg and gif formats you may adjust quality setting, like 'jpg:92' or 'gif:256'" value-name:"png|gif|jpg" required:"true"`
 	Remove  bool   `long:"remove" description:"Remove original input files"`
 	Verbose bool   `short:"v" long:"verbose" description:"Verbose progress messages"`
 }
@@ -57,8 +57,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	var quality int
 	format := opts.Format
-	quality := 92
 	colonIndex := strings.Index(opts.Format, ":")
 	if colonIndex > 0 {
 		format = opts.Format[:colonIndex]
@@ -69,6 +69,14 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Invalid qualtiy value: %q", qstr)
 				os.Exit(1)
 			}
+		}
+	} else {
+		// sane quality settings for each supported format
+		switch strings.ToLower(format) {
+		case "jpg":
+			quality = 92
+		case "gif":
+			quality = 256
 		}
 	}
 

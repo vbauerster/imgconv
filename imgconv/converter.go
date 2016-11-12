@@ -3,6 +3,7 @@ package imgconv
 
 import (
 	"image"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -24,6 +25,8 @@ func ConvertImg(in io.Reader, out io.Writer, format string, quality int) error {
 		return jpeg.Encode(out, img, &jpeg.Options{Quality: quality})
 	case "png":
 		return png.Encode(out, img)
+	case "gif":
+		return gif.Encode(out, img, &gif.Options{NumColors: quality})
 	default:
 		return newErrorf(ErrUnsupportedFormat, "unsupported format: %q", format)
 	}
