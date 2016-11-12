@@ -6,13 +6,13 @@ package main
 
 import (
 	"fmt"
-	"gopl/ch10/ex101/imgconv"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/jessevdk/go-flags"
+	"github.com/vbauerster/imgconv/imgconv"
 )
 
 const (
