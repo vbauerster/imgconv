@@ -21,7 +21,8 @@ const (
 )
 
 type options struct {
-	Format  string `short:"o" long:"outfmt" description:"Output format. If format supports quality setting, you may specify one after colon like jpg:90" value-name:"png|jpg" required:"true"`
+	Format  string `short:"o" long:"outfmt" description:"Output format. If format supports quality setting, you may specify one after colon like jpg:92" value-name:"png|jpg" required:"true"`
+	Remove  bool   `long:"remove" description:"Remove original input files"`
 	Verbose bool   `short:"v" long:"verbose" description:"Verbose progress messages"`
 }
 
@@ -57,7 +58,7 @@ func main() {
 	}
 
 	format := opts.Format
-	quality := 90
+	quality := 92
 	colonIndex := strings.Index(opts.Format, ":")
 	if colonIndex > 0 {
 		format = opts.Format[:colonIndex]
@@ -81,7 +82,7 @@ func main() {
 	var wg sync.WaitGroup
 	for _, filename := range args {
 		wg.Add(1)
-		go convert(filename, format, quality, &wg, results)
+		go convert(filename, format, quality, opts.Remove, &wg, results)
 	}
 
 	go func() {
@@ -105,7 +106,7 @@ func main() {
 	}
 }
 
-func convert(filename, format string, quality int, wg *sync.WaitGroup, results chan<- result) {
+func convert(filename, format string, quality int, remove bool, wg *sync.WaitGroup, results chan<- result) {
 	sema <- struct{}{}
 	defer func() {
 		<-sema
@@ -117,6 +118,9 @@ func convert(filename, format string, quality int, wg *sync.WaitGroup, results c
 		in, _ := os.Stat(r.infile)
 		out, _ := os.Stat(r.outfile)
 		r.delta = in.Size() - out.Size()
+	}
+	if remove {
+		os.Remove(r.infile)
 	}
 	results <- r
 }
