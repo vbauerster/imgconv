@@ -34,7 +34,15 @@ func ConvertImg(in io.Reader, out io.Writer, format string, quality int) error {
 // It returns the generated file name, e.g. "foo.jpg".
 func ConvertToSameDir(infile, format string, quality int) (string, error) {
 	format = strings.ToLower(format)
-	outfile := strings.TrimSuffix(infile, filepath.Ext(infile)) + "." + format
+	inExt := filepath.Ext(infile)
+	outExt := "." + format
+	basename := strings.TrimSuffix(infile, inExt)
+	var outfile string
+	if strings.ToLower(inExt) != outExt {
+		outfile = basename + outExt
+	} else {
+		outfile = basename + "_conv" + outExt
+	}
 	return outfile, Convert(infile, outfile, format, quality)
 }
 
