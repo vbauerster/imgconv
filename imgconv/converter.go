@@ -62,8 +62,7 @@ func Convert(infile, outfile, format string, quality int) error {
 	}
 	if err := ConvertImg(in, out, format, quality); err != nil {
 		out.Close()
-		if imgErr, ok := err.(*Error); ok && imgErr.Type == ErrUnsupportedFormat {
-			// fmt.Printf("Removing: %s\n", outfile)
+		if err, ok := err.(*Error); ok && err.Type == ErrUnsupportedFormat {
 			os.Remove(outfile)
 		}
 		return err
