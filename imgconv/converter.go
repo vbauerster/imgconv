@@ -60,12 +60,13 @@ func Convert(infile, outfile, format string, quality int) error {
 	if err != nil {
 		return err
 	}
-	if err := ConvertImg(in, out, format, quality); err != nil {
-		out.Close()
-		if err, ok := err.(*Error); ok && err.Type == ErrUnsupportedFormat {
-			os.Remove(outfile)
-		}
-		return err
+
+	err = ConvertImg(in, out, format, quality)
+	if closeErr := out.Close(); err == nil {
+		err = closeErr
+	} else if err, ok := err.(*Error); ok && err.Type == ErrUnsupportedFormat {
+		os.Remove(outfile)
 	}
-	return out.Close()
+
+	return err
 }
